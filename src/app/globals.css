@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* Deriv Brand Colors - Light Theme (default) */
+:root {
+  /* Brand Colors */
+  --deriv-red: #FF444F;
+  --deriv-red-dark: #D33636;
+  --deriv-blue: #377CFC;
+  --deriv-blue-dark: #2563D1;
+  
+  /* Light Theme Neutrals */
+  --background: #FFFFFF;
+  --surface: #F2F3F4;
+  --border: #D6DADB;
+  --text-primary: #333333;
+  --text-secondary: #6E6E6E;
+  --text-disabled: #999999;
+  
+  /* Status Colors */
+  --success: #4BB4B3;
+  --success-dark: #3A9493;
+  --warning: #FF6444;
+  --warning-dark: #E84C2C;
+  --error: #EC3F3F;
+  --error-dark: #C92A2A;
+  --info: #377CFC;
+  --info-dark: #2563D1;
+  
+  /* Semantic Colors */
+  --foreground: var(--text-primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-ibm-plex-sans);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
+/* Deriv Dark Theme */
+.dark {
+  /* Dark Theme Neutrals */
+  --background: #0E0E0E;
+  --surface: #151717;
+  --border: #323738;
+  --text-primary: #FFFFFF;
+  --text-secondary: #C2C2C2;
+  --text-disabled: #6E6E6E;
+  
+  /* Brand and Status colors remain the same in dark mode */
+  --foreground: var(--text-primary);
+}
+
+/* Fallback for system preference */
+@media (prefers-color-scheme: dark) {
+  :root:not(.dark):not(.light) {
+    --background: #0E0E0E;
+    --surface: #151717;
+    --border: #323738;
+    --text-primary: #FFFFFF;
+    --text-secondary: #C2C2C2;
+    --text-disabled: #6E6E6E;
+    --foreground: var(--text-primary);
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-ibm-plex-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
