@@ -248,10 +248,35 @@ export async function getCubeData<T = any>(
   partnerId?: string
 ): Promise<T> {
   try {
-    // For now, return empty data for cubes
-    // You can implement these as PostgreSQL functions or views in Supabase
-    console.warn(`⚠️ Cube data not yet implemented for: ${cubeName}`);
-    return [] as T;
+    const tableName = `cube_${cubeName}`;
+    
+    let query = supabase
+      .from(tableName)
+      .select('*');
+    
+    // Filter by partner_id if provided
+    if (partnerId) {
+      query = query.eq('partner_id', partnerId);
+    }
+    
+    // Order by date or id for time-series data
+    if (cubeName.includes('daily') || cubeName.includes('monthly')) {
+      query = query.order('date', { ascending: false });
+    } else {
+      query = query.order('id', { ascending: false });
+    }
+    
+    // Limit results to prevent overload
+    query = query.limit(1000);
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.warn(`⚠️ Cube data error for ${cubeName}:`, error.message);
+      return [] as T;
+    }
+    
+    return (data || []) as T;
   } catch (error) {
     console.warn(`⚠️ Cube data not available for: ${cubeName}`);
     return [] as T;
@@ -375,7 +400,31 @@ export async function getRecommendations(partnerId: string): Promise<PartnerReco
 // ============================================================================
 
 export async function getRandomTip(): Promise<AffiliateTip> {
-  // Return a default tip for now
+  try {
+    // Try to use the PostgreSQL function first
+    const { data, error } = await supabase.rpc('get_random_tip');
+    
+    if (!error && data && data.length > 0) {
+      return data[0] as AffiliateTip;
+    }
+    
+    // Fallback: query the table directly
+    const { data: tipData, error: tipError } = await supabase
+      .from('affiliate_tips')
+      .select('*')
+      .eq('is_active', true)
+      .limit(50);
+    
+    if (!tipError && tipData && tipData.length > 0) {
+      // Return a random tip from the results
+      const randomIndex = Math.floor(Math.random() * tipData.length);
+      return tipData[randomIndex] as AffiliateTip;
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not fetch random tip:', error);
+  }
+  
+  // Return a default tip as fallback
   return {
     id: 0,
     tip_text: 'Focus on building trust before selling. Share educational content about forex trading to establish yourself as an authority in the space.',
