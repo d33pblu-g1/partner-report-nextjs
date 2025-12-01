@@ -390,3 +390,4 @@ Same as legacy app.
 ---
 
 **Made with ❤️ using Next.js, React, and TypeScript**
+# Auto-deploy test
