@@ -53,7 +53,9 @@ export function useAllBadges(): UseQueryResult<Badge[], Error> {
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to fetch badges');
       }
-      return response.data.data;
+      // Ensure we always return an array
+      const data = response.data.data;
+      return Array.isArray(data) ? data : [];
     },
   });
 }
@@ -70,7 +72,9 @@ export function usePartnerBadges(partnerId?: string): UseQueryResult<PartnerBadg
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to fetch partner badges');
       }
-      return response.data.data;
+      // Ensure we always return an array
+      const data = response.data.data;
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!partnerId,
   });
@@ -88,7 +92,9 @@ export function useBadgeProgress(partnerId?: string): UseQueryResult<BadgeProgre
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to fetch badge progress');
       }
-      return response.data.data;
+      // Ensure we always return an array
+      const data = response.data.data;
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!partnerId,
   });

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { usePartners } from '@/hooks/usePartners';
 import { useMetrics } from '@/hooks/useMetrics';
@@ -24,6 +25,7 @@ export default function Home() {
   const { data: partner, isLoading: partnerLoading } = usePartner(selectedPartnerId || '');
   const { data: insights, isLoading: insightsLoading, error: insightsError } = useInsights(selectedPartnerId || undefined);
   const { data: recommendations, isLoading: recommendationsLoading, error: recommendationsError } = useRecommendations(selectedPartnerId || undefined);
+  const [showForecast, setShowForecast] = useState(true);
 
   // Check if a specific partner is selected (not "All partners")
   const isSpecificPartner = selectedPartnerId && metrics?.partnerName && metrics.partnerName !== 'All partners';
@@ -205,8 +207,26 @@ export default function Home() {
 
             {/* Commission Chart */}
             <div className="mt-8">
+              {/* Forecast Toggle */}
+              <div className="mb-4 flex items-center justify-end">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Show Forecast
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={showForecast}
+                      onChange={(e) => setShowForecast(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:bg-[#FF444F] transition-colors"></div>
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                  </div>
+                </label>
+              </div>
               {/* Commission Trends with Forecast */}
-              <CommissionTrendsChart partnerId={selectedPartnerId} />
+              <CommissionTrendsChart partnerId={selectedPartnerId} showForecast={showForecast} />
             </div>
           </>
         ) : null}

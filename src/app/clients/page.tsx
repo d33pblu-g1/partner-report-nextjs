@@ -27,7 +27,9 @@ export default function ClientsPage() {
   const filteredClients = clients?.filter(client => {
     const matchesSearch = !searchTerm || 
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.binary_user_id.toLowerCase().includes(searchTerm.toLowerCase());
+      client.binary_user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.accountNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesTier = !tierFilter || client.tier === tierFilter;
     const matchesCountry = !countryFilter || client.country === countryFilter;
@@ -93,7 +95,7 @@ export default function ClientsPage() {
             <input
               id="search"
               type="text"
-              placeholder="Search by name or ID..."
+              placeholder="Search by name, ID, account number, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"

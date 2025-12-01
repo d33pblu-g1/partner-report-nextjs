@@ -20,8 +20,8 @@ export const derivColors = {
   // Light Theme Colors
   light: {
     background: '#FFFFFF',
-    surface: '#F2F3F4',
-    border: '#D6DADB',
+    surface: '#F8F9FA',
+    border: '#C7CBCD',
     textPrimary: '#333333',
     textSecondary: '#6E6E6E',
     textDisabled: '#999999',

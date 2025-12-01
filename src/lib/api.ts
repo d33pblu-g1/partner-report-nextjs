@@ -1,123 +1,45 @@
 /**
- * API Client Library
- * Handles all communication with the PHP backend
+ * API Client Library - Supabase Version
+ * Replaces PHP backend with Supabase PostgreSQL + Auto-generated API
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { supabase } from './supabase';
 import type {
-  ApiResponse,
   Partner,
   Client,
   PartnerMetrics,
   CommissionData,
   PartnerLink,
-  MonthlyDepositsCube,
-  PartnerScorecardCube,
   FilterOptions,
   PartnerInsight,
   PartnerRecommendation,
   AffiliateTip,
 } from '@/types';
 
-// API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
-
-// Create axios instance
-const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor for logging
-apiClient.interceptors.request.use(
-  (config) => {
-    console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-    return config;
-  },
-  (error) => {
-    console.error('❌ API Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor for error handling
-apiClient.interceptors.response.use(
-  (response) => {
-    console.log(`✅ API Response: ${response.config.url}`, response.data);
-    return response;
-  },
-  (error) => {
-    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Unknown error';
-    const endpoint = error.config?.url || 'unknown endpoint';
-    
-    // Suppress expected errors for endpoints that may not exist yet
-    const isExpectedMissing = 
-      endpoint.includes('endpoint=tips') || 
-      endpoint.includes('endpoint=cubes') ||
-      errorMessage.includes('Endpoint not found');
-    
-    if (isExpectedMissing) {
-      // Just a warning for expected missing endpoints
-      console.warn(`⚠️ API endpoint not yet implemented [${endpoint}]:`, errorMessage);
-    } else {
-      // Log as error for unexpected issues
-      console.error(`❌ API Response Error [${endpoint}]:`, errorMessage);
-      
-      // Don't log empty objects
-      if (error.response?.data && Object.keys(error.response.data).length > 0) {
-        console.error('Error details:', error.response.data);
-      }
-    }
-    
-    return Promise.reject(error);
-  }
-);
-
-/**
- * Generic API request helper
- */
-async function apiRequest<T>(
-  endpoint: string,
-  options?: AxiosRequestConfig
-): Promise<T> {
-  try {
-    const response = await apiClient.request<ApiResponse<T>>({
-      url: `/index.php?endpoint=${endpoint}`,
-      ...options,
-    });
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'API request failed');
-    }
-
-    return response.data.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(error.response?.data?.error || error.message);
-    }
-    throw error;
-  }
-}
-
 // ============================================================================
 // Partners API
 // ============================================================================
 
 export async function getPartners(): Promise<Partner[]> {
-  return apiRequest<Partner[]>('partners');
+  const { data, error } = await supabase
+    .from('partners')
+    .select('*')
+    .order('global_rank', { ascending: true });
+  
+  if (error) throw new Error(error.message);
+  return data || [];
 }
 
 export async function getPartner(partnerId: string): Promise<Partner> {
-  const response = await apiRequest<Partner[]>(`partners&partner_id=${partnerId}`);
-  // PHP API returns an array even for single partner query, so extract first element
-  if (Array.isArray(response) && response.length > 0) {
-    return response[0];
-  }
-  throw new Error('Partner not found');
+  const { data, error } = await supabase
+    .from('partners')
+    .select('*')
+    .eq('partner_id', partnerId)
+    .single();
+  
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Partner not found');
+  return data;
 }
 
 // ============================================================================
@@ -125,43 +47,74 @@ export async function getPartner(partnerId: string): Promise<Partner> {
 // ============================================================================
 
 export async function getClients(filters?: FilterOptions): Promise<Client[]> {
-  const params = new URLSearchParams();
+  let query = supabase.from('clients').select('*');
   
-  if (filters?.partnerId) params.append('partner_id', filters.partnerId);
-  if (filters?.country) params.append('country', filters.country);
-  if (filters?.tier) params.append('tier', filters.tier);
-  if (filters?.limit) params.append('limit', filters.limit.toString());
-  if (filters?.offset) params.append('offset', filters.offset.toString());
+  if (filters?.partnerId) {
+    query = query.eq('partner_id', filters.partnerId);
+  }
+  if (filters?.country) {
+    query = query.eq('country', filters.country);
+  }
+  if (filters?.tier) {
+    query = query.eq('tier', filters.tier);
+  }
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+  if (filters?.offset) {
+    query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
+  }
   
-  const queryString = params.toString();
-  const endpoint = queryString ? `clients&${queryString}` : 'clients';
+  const { data, error } = await query.order('signup_date', { ascending: false });
   
-  const response = await apiRequest<{ clients: Client[]; total: number; limit: number; offset: number }>(endpoint);
-  return response.clients;
+  if (error) throw new Error(error.message);
+  return data || [];
 }
 
 export async function getClient(clientId: string): Promise<Client> {
-  return apiRequest<Client>(`clients&id=${clientId}`);
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('client_id', clientId)
+    .single();
+  
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Client not found');
+  return data;
 }
 
 export async function createClient(client: Partial<Client>): Promise<Client> {
-  return apiRequest<Client>('clients', {
-    method: 'POST',
-    data: client,
-  });
+  const { data, error } = await supabase
+    .from('clients')
+    .insert([client])
+    .select()
+    .single();
+  
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Failed to create client');
+  return data;
 }
 
 export async function updateClient(clientId: string, client: Partial<Client>): Promise<Client> {
-  return apiRequest<Client>(`clients&id=${clientId}`, {
-    method: 'PUT',
-    data: client,
-  });
+  const { data, error } = await supabase
+    .from('clients')
+    .update(client)
+    .eq('client_id', clientId)
+    .select()
+    .single();
+  
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Failed to update client');
+  return data;
 }
 
 export async function deleteClient(clientId: string): Promise<void> {
-  return apiRequest<void>(`clients&id=${clientId}`, {
-    method: 'DELETE',
-  });
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .eq('client_id', clientId);
+  
+  if (error) throw new Error(error.message);
 }
 
 // ============================================================================
@@ -169,8 +122,102 @@ export async function deleteClient(clientId: string): Promise<void> {
 // ============================================================================
 
 export async function getMetrics(partnerId?: string): Promise<PartnerMetrics> {
-  const endpoint = partnerId ? `metrics&partner_id=${partnerId}` : 'metrics';
-  return apiRequest<PartnerMetrics>(endpoint);
+  try {
+    // Get total commissions
+    let commissionsQuery = supabase
+      .from('commissions')
+      .select('amount');
+    
+    if (partnerId) {
+      commissionsQuery = commissionsQuery.eq('partner_id', partnerId);
+    }
+    
+    const { data: commissions, error: commissionsError } = await commissionsQuery;
+    
+    if (commissionsError) throw commissionsError;
+    
+    const totalCommissions = commissions?.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) || 0;
+    
+    // Get total clients
+    let clientsQuery = supabase
+      .from('clients')
+      .select('client_id', { count: 'exact' });
+    
+    if (partnerId) {
+      clientsQuery = clientsQuery.eq('partner_id', partnerId);
+    }
+    
+    const { count: totalClients } = await clientsQuery;
+    
+    // Get total deposits
+    let depositsQuery = supabase
+      .from('deposits')
+      .select('amount');
+    
+    if (partnerId) {
+      depositsQuery = depositsQuery.eq('partner_id', partnerId);
+    }
+    
+    const { data: deposits } = await depositsQuery;
+    const totalDeposits = deposits?.reduce((sum, d) => sum + (Number(d.amount) || 0), 0) || 0;
+    
+    // Get total volume
+    let tradesQuery = supabase
+      .from('trades')
+      .select('volume');
+    
+    if (partnerId) {
+      tradesQuery = tradesQuery.eq('partner_id', partnerId);
+    }
+    
+    const { data: trades } = await tradesQuery;
+    const totalVolume = trades?.reduce((sum, t) => sum + (Number(t.volume) || 0), 0) || 0;
+    
+    // Get MTD (Month To Date) metrics
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    let mtdCommissionsQuery = supabase
+      .from('commissions')
+      .select('amount')
+      .gte('date', startOfMonth.toISOString());
+    
+    if (partnerId) {
+      mtdCommissionsQuery = mtdCommissionsQuery.eq('partner_id', partnerId);
+    }
+    
+    const { data: mtdCommissionsData } = await mtdCommissionsQuery;
+    const mtdCommissions = mtdCommissionsData?.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) || 0;
+    
+    return {
+      partnerName: '',
+      partnerTier: '',
+      ltClients: totalClients || 0,
+      ltDeposits: totalDeposits,
+      ltCommissions: totalCommissions,
+      ltVolume: totalVolume,
+      mtdClients: 0,
+      mtdDeposits: 0,
+      mtdComm: mtdCommissions,
+      mtdVolume: 0,
+    };
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    // Return default metrics on error
+    return {
+      partnerName: '',
+      partnerTier: '',
+      ltClients: 0,
+      ltDeposits: 0,
+      ltCommissions: 0,
+      ltVolume: 0,
+      mtdClients: 0,
+      mtdDeposits: 0,
+      mtdComm: 0,
+      mtdVolume: 0,
+    };
+  }
 }
 
 // ============================================================================
@@ -178,12 +225,22 @@ export async function getMetrics(partnerId?: string): Promise<PartnerMetrics> {
 // ============================================================================
 
 export async function getCommissions(partnerId?: string): Promise<CommissionData[]> {
-  const endpoint = partnerId ? `commissions&partner_id=${partnerId}` : 'commissions';
-  return apiRequest<CommissionData[]>(endpoint);
+  let query = supabase
+    .from('commissions')
+    .select('*');
+  
+  if (partnerId) {
+    query = query.eq('partner_id', partnerId);
+  }
+  
+  const { data, error } = await query.order('date', { ascending: false });
+  
+  if (error) throw new Error(error.message);
+  return data || [];
 }
 
 // ============================================================================
-// Cubes API
+// Cubes API (Complex queries - using database functions)
 // ============================================================================
 
 export async function getCubeData<T = any>(
@@ -191,23 +248,36 @@ export async function getCubeData<T = any>(
   partnerId?: string
 ): Promise<T> {
   try {
-    const endpoint = partnerId 
-      ? `cubes&cube=${cubeName}&partner_id=${partnerId}`
-      : `cubes&cube=${cubeName}`;
-    return await apiRequest<T>(endpoint);
+    // For now, return empty data for cubes
+    // You can implement these as PostgreSQL functions or views in Supabase
+    console.warn(`⚠️ Cube data not yet implemented for: ${cubeName}`);
+    return [] as T;
   } catch (error) {
-    console.warn(`⚠️ Cube data not available for: ${cubeName}. Returning empty array.`);
-    // Return empty array for missing cubes instead of throwing
+    console.warn(`⚠️ Cube data not available for: ${cubeName}`);
     return [] as T;
   }
 }
 
-export async function getMonthlyDeposits(partnerId?: string): Promise<MonthlyDepositsCube[]> {
-  return getCubeData<MonthlyDepositsCube[]>('monthly_deposits', partnerId);
+export async function getMonthlyDeposits(partnerId?: string): Promise<any[]> {
+  return getCubeData<any[]>('monthly_deposits', partnerId);
 }
 
-export async function getPartnerScorecard(partnerId?: string): Promise<PartnerScorecardCube | PartnerScorecardCube[]> {
-  return getCubeData<PartnerScorecardCube | PartnerScorecardCube[]>('partner_scorecard', partnerId);
+export async function getPartnerScorecard(partnerId?: string): Promise<any> {
+  // Use the PostgreSQL function we created
+  try {
+    if (partnerId) {
+      const { data, error } = await supabase.rpc('get_partner_scorecard', {
+        p_partner_id: partnerId
+      });
+      
+      if (error) throw error;
+      return data;
+    }
+    return null;
+  } catch (error) {
+    console.warn('⚠️ Partner scorecard not available');
+    return null;
+  }
 }
 
 // ============================================================================
@@ -215,21 +285,41 @@ export async function getPartnerScorecard(partnerId?: string): Promise<PartnerSc
 // ============================================================================
 
 export async function getPartnerLinks(partnerId?: string): Promise<PartnerLink[]> {
-  const endpoint = partnerId ? `partner_links&partner_id=${partnerId}` : 'partner_links';
-  return apiRequest<PartnerLink[]>(endpoint);
+  let query = supabase
+    .from('partner_links')
+    .select('*');
+  
+  if (partnerId) {
+    query = query.eq('partner_id', partnerId);
+  }
+  
+  const { data, error } = await query
+    .eq('is_active', true)
+    .order('created_date', { ascending: false });
+  
+  if (error) throw new Error(error.message);
+  return data || [];
 }
 
-export async function createPartnerLink(link: Omit<PartnerLink, 'id' | 'created_at' | 'updated_at'>): Promise<PartnerLink> {
-  return apiRequest<PartnerLink>('partner_links', {
-    method: 'POST',
-    data: link,
-  });
+export async function createPartnerLink(link: Omit<PartnerLink, 'id' | 'created_date'>): Promise<PartnerLink> {
+  const { data, error } = await supabase
+    .from('partner_links')
+    .insert([link])
+    .select()
+    .single();
+  
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Failed to create partner link');
+  return data;
 }
 
 export async function deletePartnerLink(linkId: number): Promise<void> {
-  return apiRequest<void>(`partner_links&id=${linkId}`, {
-    method: 'DELETE',
-  });
+  const { error } = await supabase
+    .from('partner_links')
+    .delete()
+    .eq('id', linkId);
+  
+  if (error) throw new Error(error.message);
 }
 
 // ============================================================================
@@ -237,10 +327,9 @@ export async function deletePartnerLink(linkId: number): Promise<void> {
 // ============================================================================
 
 export async function getChartData(chartType: string, partnerId?: string): Promise<any> {
-  const endpoint = partnerId 
-    ? `charts&type=${chartType}&partner_id=${partnerId}`
-    : `charts&type=${chartType}`;
-  return apiRequest<any>(endpoint);
+  // Chart data can be fetched from respective tables
+  console.warn(`⚠️ Chart data not yet implemented for: ${chartType}`);
+  return [];
 }
 
 // ============================================================================
@@ -248,11 +337,37 @@ export async function getChartData(chartType: string, partnerId?: string): Promi
 // ============================================================================
 
 export async function getInsights(partnerId: string): Promise<PartnerInsight[]> {
-  return apiRequest<PartnerInsight[]>(`insights&partner_id=${partnerId}`);
+  const { data, error } = await supabase
+    .from('partner_insights')
+    .select('*')
+    .eq('partner_id', partnerId)
+    .eq('is_active', true)
+    .order('priority', { ascending: true })
+    .limit(3);
+  
+  if (error) {
+    console.warn('⚠️ Insights not available:', error.message);
+    return [];
+  }
+  
+  return data || [];
 }
 
 export async function getRecommendations(partnerId: string): Promise<PartnerRecommendation[]> {
-  return apiRequest<PartnerRecommendation[]>(`recommendations&partner_id=${partnerId}`);
+  const { data, error } = await supabase
+    .from('partner_recommendations')
+    .select('*')
+    .eq('partner_id', partnerId)
+    .eq('is_active', true)
+    .order('priority', { ascending: true})
+    .limit(3);
+  
+  if (error) {
+    console.warn('⚠️ Recommendations not available:', error.message);
+    return [];
+  }
+  
+  return data || [];
 }
 
 // ============================================================================
@@ -260,19 +375,14 @@ export async function getRecommendations(partnerId: string): Promise<PartnerReco
 // ============================================================================
 
 export async function getRandomTip(): Promise<AffiliateTip> {
-  try {
-    return await apiRequest<AffiliateTip>('tips');
-  } catch (error) {
-    // If tips endpoint doesn't exist, return a default tip
-    console.warn('⚠️ Tips endpoint not available. Using default tip.');
-    return {
-      id: 0,
-      tip_text: 'Focus on building trust before selling. Share educational content about forex trading to establish yourself as an authority in the space.',
-      category: 'marketing',
-      created_at: new Date().toISOString(),
-      is_active: true,
-    } as AffiliateTip;
-  }
+  // Return a default tip for now
+  return {
+    id: 0,
+    tip_text: 'Focus on building trust before selling. Share educational content about forex trading to establish yourself as an authority in the space.',
+    category: 'marketing',
+    created_at: new Date().toISOString(),
+    is_active: true,
+  } as AffiliateTip;
 }
 
 // ============================================================================

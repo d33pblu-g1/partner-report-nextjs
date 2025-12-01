@@ -44,18 +44,43 @@ export function PlatformPieChart({ partnerId }: PlatformPieChartProps) {
         </h3>
         <div className="text-center py-12">
           <p className="text-gray-600 dark:text-gray-400">
-            No platform data available
+            {error ? `Error: ${error.message}` : 'No platform data available'}
           </p>
         </div>
       </Card>
     );
   }
 
+  // Debug: Log first item to see actual field names
+  if (data.length > 0) {
+    console.log('💻 Platform Performance - Sample data:', data[0]);
+    console.log('💻 Platform Performance - Available fields:', Object.keys(data[0]));
+  }
+
   // Group by platform
   const platformMap = new Map<string, number>();
   data.forEach((item: any) => {
-    const platform = item.platform || item.platform_name || 'Other';
-    const commission = item.commission || item.total_commission || 0;
+    // Try multiple possible field name variations for platform
+    const platform = item.platform || 
+                     item.platform_name || 
+                     item.platformname ||
+                     item.trading_platform ||
+                     item.platform_type ||
+                     item.type ||
+                     'Other';
+    
+    // Try multiple possible field name variations for commission amount
+    const commission = parseFloat(
+      item.commission || 
+      item.total_commission || 
+      item.total_commissions ||
+      item.amount || 
+      item.commission_amount ||
+      item.revenue ||
+      item.expected_revenue_usd ||
+      0
+    );
+    
     platformMap.set(platform, (platformMap.get(platform) || 0) + commission);
   });
 
@@ -65,6 +90,7 @@ export function PlatformPieChart({ partnerId }: PlatformPieChartProps) {
       value: commission,
       percentage: 0, // Will calculate after
     }))
+    .filter(item => item.value > 0) // Filter out zero values
     .sort((a, b) => b.value - a.value);
 
   // Calculate percentages
@@ -72,6 +98,32 @@ export function PlatformPieChart({ partnerId }: PlatformPieChartProps) {
   chartData.forEach(item => {
     item.percentage = total > 0 ? (item.value / total) * 100 : 0;
   });
+
+  // Validation and warnings
+  const allOther = chartData.every(item => item.name === 'Other');
+  
+  if (chartData.length === 0 || total === 0) {
+    console.warn('💻 Platform Performance - No valid commission data found in response');
+    return (
+      <Card>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          💻 Platform Performance
+        </h3>
+        <div className="text-center py-12">
+          <p className="text-gray-600 dark:text-gray-400">
+            No platform data with valid amounts found.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            Check browser console for data structure details.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (allOther) {
+    console.warn('💻 Platform Performance - All platforms are "Other". Check field names.');
+  }
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {

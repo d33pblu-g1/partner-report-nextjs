@@ -5,12 +5,59 @@
 
 'use client';
 
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { usePartners } from '@/hooks/usePartners';
 
 export function Header() {
   const { toggleTheme, theme, selectedPartnerId, setSelectedPartnerId, isRightMenuOpen, toggleRightMenu } = useStore();
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const { data: partners, isLoading } = usePartners();
+
+  const handleExportReport = async () => {
+    setIsExporting(true);
+    setExportError(null);
+
+    try {
+      const url = selectedPartnerId 
+        ? `/api/export-report?partnerId=${selectedPartnerId}`
+        : '/api/export-report';
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // Extract filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : `partner-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      // Close menu after successful export
+      toggleRightMenu();
+    } catch (error) {
+      console.error('Export error:', error);
+      setExportError(error instanceof Error ? error.message : 'Failed to export report');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <>
@@ -82,7 +129,44 @@ export function Header() {
           </div>
 
           {/* Panel Content */}
-          <div className="p-4">
+          <div className="p-4 space-y-2">
+            {/* Export Report Button */}
+            <button
+              onClick={handleExportReport}
+              disabled={isExporting}
+              className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[#F2F3F4] dark:hover:bg-[#323738] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 flex items-center justify-center">
+                  {isExporting ? (
+                    <svg className="animate-spin h-5 w-5 text-[#333333] dark:text-[#C2C2C2]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#333333] dark:text-[#C2C2C2]">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                </div>
+                <span className="text-[#333333] dark:text-white font-medium">
+                  {isExporting ? 'Generating...' : 'Export Report'}
+                </span>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#6E6E6E] dark:text-[#C2C2C2]">
+                <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+
+            {/* Export Error Message */}
+            {exportError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-xs text-red-600 dark:text-red-400">{exportError}</p>
+              </div>
+            )}
+
             {/* Theme Toggle */}
             <button
               onClick={() => {

@@ -45,18 +45,43 @@ export function CommissionByPlanChart({ partnerId }: CommissionByPlanChartProps)
         </h3>
         <div className="text-center py-12">
           <p className="text-gray-600 dark:text-gray-400">
-            No commission plan data available
+            {error ? `Error: ${error.message}` : 'No commission plan data available'}
           </p>
         </div>
       </Card>
     );
   }
 
+  // Debug: Log first item to see actual field names
+  if (data.length > 0) {
+    console.log('📊 Commission by Plan - Sample data:', data[0]);
+    console.log('📊 Commission by Plan - Available fields:', Object.keys(data[0]));
+  }
+
   // Group by plan and aggregate
   const planMap = new Map<string, number>();
   data.forEach((item: any) => {
-    const plan = item.commission_plan || item.plan_name || 'Unknown';
-    const commission = item.commission || item.total_commission || 0;
+    // Try multiple possible field name variations for plan
+    const plan = item.commission_plan || 
+                 item.plan_name || 
+                 item.commissionplan || 
+                 item.plan || 
+                 item.type ||
+                 item.plan_type ||
+                 'Unknown';
+    
+    // Try multiple possible field name variations for commission amount
+    const commission = parseFloat(
+      item.commission || 
+      item.total_commission || 
+      item.total_commissions ||
+      item.amount || 
+      item.commission_amount ||
+      item.revenue ||
+      item.expected_revenue_usd ||
+      0
+    );
+    
     planMap.set(plan, (planMap.get(plan) || 0) + commission);
   });
 
@@ -66,7 +91,35 @@ export function CommissionByPlanChart({ partnerId }: CommissionByPlanChartProps)
       fullPlan: plan,
       commission,
     }))
+    .filter(item => item.commission > 0) // Filter out zero values
     .sort((a, b) => b.commission - a.commission);
+
+  // If all plans are "Unknown" or no valid data, show helpful message
+  const allUnknown = chartData.every(item => item.fullPlan === 'Unknown');
+  const totalCommission = chartData.reduce((sum, item) => sum + item.commission, 0);
+
+  if (chartData.length === 0 || totalCommission === 0) {
+    console.warn('📊 Commission by Plan - No valid commission data found in response');
+    return (
+      <Card>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          📊 Commission by Plan
+        </h3>
+        <div className="text-center py-12">
+          <p className="text-gray-600 dark:text-gray-400">
+            No commission data with valid amounts found.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            Check browser console for data structure details.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (allUnknown) {
+    console.warn('📊 Commission by Plan - All plans are "Unknown". Check field names.');
+  }
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -83,8 +136,6 @@ export function CommissionByPlanChart({ partnerId }: CommissionByPlanChartProps)
     }
     return null;
   };
-
-  const totalCommission = chartData.reduce((sum, item) => sum + item.commission, 0);
 
   return (
     <Card>

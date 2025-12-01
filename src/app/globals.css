@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Configure Tailwind v4 dark mode to use class strategy */
+@variant dark (.dark &);
+
 /* Deriv Brand Colors - Light Theme (default) */
 :root {
   /* Brand Colors */
@@ -10,8 +13,8 @@
   
   /* Light Theme Neutrals */
   --background: #FFFFFF;
-  --surface: #F2F3F4;
-  --border: #D6DADB;
+  --surface: #F8F9FA;
+  --border: #C7CBCD;
   --text-primary: #333333;
   --text-secondary: #6E6E6E;
   --text-disabled: #999999;
@@ -51,6 +54,18 @@
   --foreground: var(--text-primary);
 }
 
+/* Explicit Light Theme - Always use light colors when .light class is set */
+.light {
+  /* Light Theme Neutrals */
+  --background: #FFFFFF;
+  --surface: #F8F9FA;
+  --border: #C7CBCD;
+  --text-primary: #333333;
+  --text-secondary: #6E6E6E;
+  --text-disabled: #999999;
+  --foreground: var(--text-primary);
+}
+
 /* Fallback for system preference */
 @media (prefers-color-scheme: dark) {
   :root:not(.dark):not(.light) {
@@ -70,4 +85,115 @@ body {
   font-family: var(--font-ibm-plex-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Notification animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Print-specific styles for PDF generation */
+@media print {
+  /* Page break controls */
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+  
+  .page-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+  
+  .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  
+  /* Page configuration */
+  @page {
+    size: A4;
+    margin: 20mm 15mm;
+  }
+  
+  /* Hide unnecessary elements */
+  nav,
+  aside,
+  header,
+  button:not(.no-hide),
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Optimize colors for print */
+  body {
+    background: white;
+    color: black;
+  }
+  
+  /* Ensure charts are visible */
+  .recharts-wrapper,
+  .recharts-surface {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* Optimize tables for print */
+  table {
+    page-break-inside: auto;
+  }
+  
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tfoot {
+    display: table-footer-group;
+  }
+  
+  /* Better text rendering for print */
+  p, h1, h2, h3, h4, h5, h6 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  
+  /* Improve chart visibility */
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Screen preview of print layout */
+.print-layout {
+  width: 100%;
+  min-height: 100vh;
+  background: white;
+  color: black;
+}
+
+.print-layout .page-break-after {
+  margin-bottom: 3rem;
+  padding-bottom: 3rem;
+  border-bottom: 2px dashed #e5e7eb;
 }

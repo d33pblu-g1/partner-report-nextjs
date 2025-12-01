@@ -37,9 +37,10 @@ interface CommissionTrendsData {
 
 interface Props {
   partnerId: string | null;
+  showForecast?: boolean;
 }
 
-export function CommissionTrendsChart({ partnerId }: Props) {
+export function CommissionTrendsChart({ partnerId, showForecast = true }: Props) {
   const [data, setData] = useState<CommissionTrendsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,12 +121,12 @@ export function CommissionTrendsChart({ partnerId }: Props) {
       actualCommissions: d.total_commissions,
       forecastCommissions: null,
     })),
-    ...data.forecast.map((d) => ({
+    ...(showForecast ? data.forecast.map((d) => ({
       ...d,
       label: d.month_name.substring(0, 3),
       actualCommissions: null,
       forecastCommissions: d.total_commissions,
-    })),
+    })) : []),
   ];
 
   // Find max value for Y-axis
@@ -175,7 +176,7 @@ export function CommissionTrendsChart({ partnerId }: Props) {
   return (
     <Card>
       <h3 className="text-xl font-bold text-[#333333] dark:text-white mb-4">
-        📊 Commission Trend (Last 6 Months + 3-Month Forecast)
+        📊 Commission Trend ({showForecast ? 'Last 6 Months + 3-Month Forecast' : 'Last 6 Months'})
       </h3>
 
       <div className="h-80">
@@ -203,7 +204,7 @@ export function CommissionTrendsChart({ partnerId }: Props) {
             />
             
             {/* Vertical line separating historical and forecast */}
-            {data.historical.length > 0 && data.forecast.length > 0 && (
+            {showForecast && data.historical.length > 0 && data.forecast.length > 0 && (
               <ReferenceLine
                 x={chartData[data.historical.length - 1].label}
                 stroke="#6E6E6E"
@@ -230,24 +231,26 @@ export function CommissionTrendsChart({ partnerId }: Props) {
             />
 
             {/* Forecast data line - Deriv Blue */}
-            <Line
-              type="monotone"
-              dataKey="forecastCommissions"
-              stroke="#377CFC"
-              strokeWidth={3}
-              strokeDasharray="5 5"
-              dot={{ fill: '#377CFC', r: 5 }}
-              activeDot={{ r: 7 }}
-              name="Forecast"
-              connectNulls={false}
-            />
+            {showForecast && (
+              <Line
+                type="monotone"
+                dataKey="forecastCommissions"
+                stroke="#377CFC"
+                strokeWidth={3}
+                strokeDasharray="5 5"
+                dot={{ fill: '#377CFC', r: 5 }}
+                activeDot={{ r: 7 }}
+                name="Forecast"
+                connectNulls={false}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       {/* Summary Stats */}
       {data.historical.length > 0 && (
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-[#D6DADB] dark:border-[#323738]">
+        <div className={`mt-6 grid grid-cols-1 ${showForecast ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 pt-4 border-t border-[#D6DADB] dark:border-[#323738]`}>
           <div>
             <p className="text-sm text-[#6E6E6E] dark:text-[#C2C2C2]">Average (Last 6 Months)</p>
             <p className="text-lg font-bold text-[#333333] dark:text-white">
@@ -260,12 +263,14 @@ export function CommissionTrendsChart({ partnerId }: Props) {
               ${Math.max(...data.historical.map(d => d.total_commissions)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
           </div>
-          <div>
-            <p className="text-sm text-[#6E6E6E] dark:text-[#C2C2C2]">Forecast Average</p>
-            <p className="text-lg font-bold text-[#377CFC]">
-              ${data.forecast.length > 0 ? (data.forecast.reduce((sum, d) => sum + d.total_commissions, 0) / data.forecast.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}
-            </p>
-          </div>
+          {showForecast && (
+            <div>
+              <p className="text-sm text-[#6E6E6E] dark:text-[#C2C2C2]">Forecast Average</p>
+              <p className="text-lg font-bold text-[#377CFC]">
+                ${data.forecast.length > 0 ? (data.forecast.reduce((sum, d) => sum + d.total_commissions, 0) / data.forecast.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </Card>

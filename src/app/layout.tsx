@@ -60,7 +60,7 @@ export default function RootLayout({
       </head>
       <body className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
         <Providers>
-          <div className="flex h-screen overflow-hidden bg-white dark:bg-[#0E0E0E]">
+          <div className="flex h-screen overflow-hidden bg-[#F8F9FA] dark:bg-[#0E0E0E]">
             {/* Sidebar */}
             <Sidebar />
             
