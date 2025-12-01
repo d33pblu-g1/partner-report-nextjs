@@ -50,7 +50,7 @@ export async function getClients(filters?: FilterOptions): Promise<Client[]> {
   let query = supabase.from('clients').select('*');
   
   if (filters?.partnerId) {
-    query = query.eq('partner_id', filters.partnerId);
+    query = query.eq('partnerId', filters.partnerId); // Fixed: use camelCase
   }
   if (filters?.country) {
     query = query.eq('country', filters.country);
@@ -65,7 +65,7 @@ export async function getClients(filters?: FilterOptions): Promise<Client[]> {
     query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
   }
   
-  const { data, error } = await query.order('signup_date', { ascending: false });
+  const { data, error } = await query.order('joinDate', { ascending: false }); // Fixed: use camelCase
   
   if (error) throw new Error(error.message);
   return data || [];
@@ -141,10 +141,10 @@ export async function getMetrics(partnerId?: string): Promise<PartnerMetrics> {
     // Get total clients
     let clientsQuery = supabase
       .from('clients')
-      .select('client_id', { count: 'exact' });
+      .select('binary_user_id', { count: 'exact' });
     
     if (partnerId) {
-      clientsQuery = clientsQuery.eq('partner_id', partnerId);
+      clientsQuery = clientsQuery.eq('partnerId', partnerId); // Fixed: camelCase
     }
     
     const { count: totalClients } = await clientsQuery;
@@ -155,7 +155,7 @@ export async function getMetrics(partnerId?: string): Promise<PartnerMetrics> {
       .select('amount');
     
     if (partnerId) {
-      depositsQuery = depositsQuery.eq('partner_id', partnerId);
+      depositsQuery = depositsQuery.eq('affiliate_id', partnerId); // Fixed: correct column name
     }
     
     const { data: deposits } = await depositsQuery;
@@ -164,14 +164,14 @@ export async function getMetrics(partnerId?: string): Promise<PartnerMetrics> {
     // Get total volume
     let tradesQuery = supabase
       .from('trades')
-      .select('volume');
+      .select('volume_usd');
     
     if (partnerId) {
-      tradesQuery = tradesQuery.eq('partner_id', partnerId);
+      tradesQuery = tradesQuery.eq('affiliated_partner_id', partnerId); // Fixed: correct column name
     }
     
     const { data: trades } = await tradesQuery;
-    const totalVolume = trades?.reduce((sum, t) => sum + (Number(t.volume) || 0), 0) || 0;
+    const totalVolume = trades?.reduce((sum, t) => sum + (Number(t.volume_usd) || 0), 0) || 0;
     
     // Get MTD (Month To Date) metrics
     const startOfMonth = new Date();
