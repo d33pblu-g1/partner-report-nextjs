@@ -161,17 +161,25 @@ export async function getMetrics(partnerId?: string): Promise<PartnerMetrics> {
     const { data: deposits } = await depositsQuery;
     const totalDeposits = deposits?.reduce((sum, d) => sum + (Number(d.amount) || 0), 0) || 0;
     
-    // Get total volume
+    // Get total volume - using volume_usd and affiliated_partner_id
     let tradesQuery = supabase
       .from('trades')
       .select('volume_usd');
     
     if (partnerId) {
-      tradesQuery = tradesQuery.eq('affiliated_partner_id', partnerId); // Fixed: correct column name
+      // Try string comparison first (affiliated_partner_id is VARCHAR in DB)
+      tradesQuery = tradesQuery.eq('affiliated_partner_id', String(partnerId));
     }
     
-    const { data: trades } = await tradesQuery;
+    const { data: trades, error: tradesError } = await tradesQuery;
+    
+    if (tradesError) {
+      console.error('Trades query error:', tradesError.message);
+    }
+    
+    console.log('Trades data count:', trades?.length || 0);
     const totalVolume = trades?.reduce((sum, t) => sum + (Number(t.volume_usd) || 0), 0) || 0;
+    console.log('Total volume calculated:', totalVolume);
     
     // Get MTD (Month To Date) metrics
     const startOfMonth = new Date();
