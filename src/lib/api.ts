@@ -1,6 +1,7 @@
 /**
  * API Client Library - Supabase Version
  * Replaces PHP backend with Supabase PostgreSQL + Auto-generated API
+ * Version: 2.0.1 - Fixed column names for Supabase
  */
 
 import { supabase } from './supabase';
