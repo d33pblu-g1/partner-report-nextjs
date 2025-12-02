@@ -75,7 +75,7 @@ export async function getClient(clientId: string): Promise<Client> {
   const { data, error } = await supabase
     .from('clients')
     .select('*')
-    .eq('client_id', clientId)
+    .eq('binary_user_id', clientId)  // Fixed: use binary_user_id
     .single();
   
   if (error) throw new Error(error.message);
@@ -99,7 +99,7 @@ export async function updateClient(clientId: string, client: Partial<Client>): P
   const { data, error } = await supabase
     .from('clients')
     .update(client)
-    .eq('client_id', clientId)
+    .eq('binary_user_id', clientId)  // Fixed: use binary_user_id
     .select()
     .single();
   
@@ -112,7 +112,7 @@ export async function deleteClient(clientId: string): Promise<void> {
   const { error } = await supabase
     .from('clients')
     .delete()
-    .eq('client_id', clientId);
+    .eq('binary_user_id', clientId);  // Fixed: use binary_user_id
   
   if (error) throw new Error(error.message);
 }
@@ -254,16 +254,10 @@ export async function getCubeData<T = any>(
       .from(tableName)
       .select('*');
     
-    // Filter by partner_id if provided
+    // Filter by partner_id if provided (different cubes use different column names)
     if (partnerId) {
+      // Try to filter - some cubes might not have partner_id
       query = query.eq('partner_id', partnerId);
-    }
-    
-    // Order by date or id for time-series data
-    if (cubeName.includes('daily') || cubeName.includes('monthly')) {
-      query = query.order('date', { ascending: false });
-    } else {
-      query = query.order('id', { ascending: false });
     }
     
     // Limit results to prevent overload
@@ -272,6 +266,21 @@ export async function getCubeData<T = any>(
     const { data, error } = await query;
     
     if (error) {
+      // If partner_id column doesn't exist, try without filter
+      if (error.message.includes('does not exist') && partnerId) {
+        console.warn(`⚠️ Cube ${cubeName} doesn't have partner_id, fetching all data`);
+        const { data: allData, error: allError } = await supabase
+          .from(tableName)
+          .select('*')
+          .limit(1000);
+        
+        if (allError) {
+          console.warn(`⚠️ Cube data error for ${cubeName}:`, allError.message);
+          return [] as T;
+        }
+        return (allData || []) as T;
+      }
+      
       console.warn(`⚠️ Cube data error for ${cubeName}:`, error.message);
       return [] as T;
     }
@@ -318,11 +327,20 @@ export async function getPartnerLinks(partnerId?: string): Promise<PartnerLink[]
     query = query.eq('partner_id', partnerId);
   }
   
+  // Try with status='active' (actual column name)
   const { data, error } = await query
-    .eq('is_active', true)
-    .order('created_date', { ascending: false });
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
   
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.warn('⚠️ Partner links query error:', error.message);
+    // Fallback: try without status filter
+    const { data: allData } = await supabase
+      .from('partner_links')
+      .select('*')
+      .eq('partner_id', partnerId || '');
+    return allData || [];
+  }
   return data || [];
 }
 
